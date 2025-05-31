@@ -1,48 +1,69 @@
-from ply import lex
+import re
 
-# 1. Definindo os tokens
-tokens = (
-    'NUMBER',
-    'PLUS',
-    'MINUS',
-    'TIMES',
-    'DIVIDE',
-    'LPAREN',
-    'RPAREN',
-    'ID'
-)
+# Definição de tokens
+RESERVED_WORDS = {"func", "string", "int", "float", "if", "else", "print"}
+OPERATORS = {"=", "+", "-", "*", "/", "<", ">", "<=", ">=", "==", "!=", "&&", "||"}
+DELIMITERS = {"(", ")", "{", "}", ";", ","}
+TOKEN_REGEX = {
+    "IDENTIFIER": r"[a-zA-Z_]\w*",
+    "NUMBER": r"\d+(\.\d+)?",
+    "STRING": r"\".*?\"",
+    "OPERATOR": r"(==|!=|<=|>=|&&|\|\||=|\+|\-|\*|/|<|>)",
+    "DELIMITER": r"[\(\){};,]",
+}
 
-# 2. Regras para cada token (usando regex)
-t_PLUS    = r'\+'
-t_MINUS   = r'-'
-t_TIMES   = r'\*'
-t_DIVIDE  = r'/'
-t_LPAREN  = r'\('
-t_RPAREN  = r'\)'
-t_ID      = r'[a-zA-Z_][a-zA-Z0-9_]*'  # Ex: x, soma, var1
+# Função de análise léxica
+def lexer(code):
+    tokens = []
+    invalid_tokens = []
+    i = 0
+    while i < len(code):
+        if code[i].isspace():
+            i += 1
+            continue
 
-# 3. Regra para números (com ação adicional)
-def t_NUMBER(t):
-    r'\d+'
-    t.value = int(t.value)  # Converte para inteiro
-    return t
+        match = None
+        for token_type, regex in TOKEN_REGEX.items():
+            pattern = re.compile(regex)
+            match = pattern.match(code, i)
+            if match:
+                lexeme = match.group()
+                if token_type == "IDENTIFIER":
+                    if lexeme in RESERVED_WORDS:
+                        tokens.append(("RESERVED", lexeme))
+                    else:
+                        tokens.append((token_type, lexeme))
+                else:
+                    tokens.append((token_type, lexeme))
+                i = match.end()
+                break
 
-# 4. Ignorar espaços e tabs
-t_ignore = ' \t'
+        if not match:
+            invalid_tokens.append(code[i])
+            i += 1
 
-# 5. Tratamento de erros
-def t_error(t):
-    print(f"Caractere ilegal: '{t.value[0]}'")
-    t.lexer.skip(1)
+    return tokens, invalid_tokens
 
-# Criar o lexer
-lexer = lex.lex()
+# Exemplo de código de entrada
+codigo = '''
+func cadastrarCarro() {
+    string modelo = "Civic";
+    int ano = 2020;
+    float preco = 95000.50;
 
-# --- Testes ---
-if __name__ == "__main__":
-    data = "x = 42 + (30 * y)"
-    lexer.input(data)
+    if (ano >= 2010 && preco < 100000) {
+        print("Cadastro válido");
+    } else {
+        print("Cadastro inválido");
+    }
+}
+'''
 
-    print("Tokens encontrados:")
-    for token in lexer:
-        print(f"Tipo: {token.type}, Valor: {token.value}")
+# Execução
+tokens_validos, tokens_invalidos = lexer(codigo)
+
+# Resultados
+print("=== TOKENS VÁLIDOS ===")
+for token in tokens_validos:
+    print(token)
+
