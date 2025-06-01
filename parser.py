@@ -10,120 +10,154 @@ class Parser:
         if (expected_type and token_type != expected_type) or (expected_value and token_value != expected_value):
             return False
         self.pos += 1
-        return True
+        return token_type, token_value
 
     def expect(self, expected_type=None, expected_value=None):
-        if not self.match(expected_type, expected_value):
+        result = self.match(expected_type, expected_value)
+        if not result:
             raise SyntaxError(f"Erro de sintaxe na posição {self.pos}: esperado {expected_type} '{expected_value}'.")
+        return result
 
     def parse(self):
-        self.program()
+        return self.program()
 
     def program(self):
         self.expect("RESERVED", "func")
-        self.expect("IDENTIFIER")
+        func_name = self.expect("IDENTIFIER")[1]
         self.expect("DELIMITER", "(")
         self.expect("DELIMITER", ")")
         self.expect("DELIMITER", "{")
-        self.stmt_list()
+        body = self.stmt_list()
         self.expect("DELIMITER", "}")
 
+        return {"type": "Program", "name": func_name, "body": body}
+
     def stmt_list(self):
+        stmts = []
         while self.pos < len(self.tokens) and self.tokens[self.pos][1] != "}":
-            self.stmt()
+            stmts.append(self.stmt())
+        return stmts
 
     def stmt(self):
         token = self.tokens[self.pos]
         if token[0] == "RESERVED":
             if token[1] in {"int", "string", "float"}:
-                self.var_decl()
+                node = self.var_decl()
                 self.expect("DELIMITER", ";")
+                return node
             elif token[1] == "if":
-                self.if_stmt()
+                return self.if_stmt()
             elif token[1] == "while":
-                self.while_stmt()
+                return self.while_stmt()
             elif token[1] == "for":
-                self.for_stmt()
+                return self.for_stmt()
             elif token[1] == "print":
-                self.print_stmt()
+                node = self.print_stmt()
                 self.expect("DELIMITER", ";")
+                return node
             elif token[1] == "return":
-                self.return_stmt()
+                node = self.return_stmt()
+                self.expect("DELIMITER", ";")
+                return node
         elif token[0] == "IDENTIFIER":
-            self.assignment()
+            node = self.assignment()
             self.expect("DELIMITER", ";")
+            return node
         else:
             raise SyntaxError(f"Comando inesperado: {token}")
 
     def var_decl(self):
-        self.match("RESERVED")  # tipo
-        self.expect("IDENTIFIER")
+        var_type = self.expect("RESERVED")[1]
+        var_name = self.expect("IDENTIFIER")[1]
         self.expect("OPERATOR", "=")
-        self.expr()
+        value = self.expr()
+        return {"type": "VarDecl", "var_type": var_type, "var_name": var_name, "value": value}
 
     def assignment(self):
-        self.expect("IDENTIFIER")
+        var_name = self.expect("IDENTIFIER")[1]
         self.expect("OPERATOR", "=")
-        self.expr()
+        value = self.expr()
+        return {"type": "Assignment", "var_name": var_name, "value": value}
 
     def if_stmt(self):
         self.expect("RESERVED", "if")
         self.expect("DELIMITER", "(")
-        self.expr()
+        condition = self.expr()
         self.expect("DELIMITER", ")")
         self.expect("DELIMITER", "{")
-        self.stmt_list()
+        then_body = self.stmt_list()
         self.expect("DELIMITER", "}")
+
+        else_body = None
         if self.match("RESERVED", "else"):
             self.expect("DELIMITER", "{")
-            self.stmt_list()
+            else_body = self.stmt_list()
             self.expect("DELIMITER", "}")
+
+        return {"type": "If", "condition": condition, "then": then_body, "else": else_body}
 
     def while_stmt(self):
         self.expect("RESERVED", "while")
         self.expect("DELIMITER", "(")
-        self.expr()
+        condition = self.expr()
         self.expect("DELIMITER", ")")
         self.expect("DELIMITER", "{")
-        self.stmt_list()
+        body = self.stmt_list()
         self.expect("DELIMITER", "}")
+        return {"type": "While", "condition": condition, "body": body}
 
     def for_stmt(self):
         self.expect("RESERVED", "for")
         self.expect("DELIMITER", "(")
-        self.var_decl()
+        init = self.var_decl()
         self.expect("DELIMITER", ";")
-        self.expr()
+        condition = self.expr()
         self.expect("DELIMITER", ";")
-        self.assignment()
+        update = self.assignment()
         self.expect("DELIMITER", ")")
         self.expect("DELIMITER", "{")
-        self.stmt_list()
+        body = self.stmt_list()
         self.expect("DELIMITER", "}")
+        return {
+            "type": "For",
+            "init": init,
+            "condition": condition,
+            "update": update,
+            "body": body
+        }
 
     def print_stmt(self):
         self.expect("RESERVED", "print")
         self.expect("DELIMITER", "(")
-        self.expect("STRING")
+        value = self.expect("STRING")[1]
         self.expect("DELIMITER", ")")
+        return {"type": "Print", "value": value}
 
     def return_stmt(self):
         self.expect("RESERVED", "return")
-        self.expr()
-        self.expect("DELIMITER", ";")
+        value = self.expr()
+        return {"type": "Return", "value": value}
 
     def expr(self):
-        # Para simplificação: expr = IDENTIFIER | NUMBER | STRING
         token = self.tokens[self.pos]
+
         if token[0] in {"IDENTIFIER", "NUMBER", "STRING"}:
             self.pos += 1
-            # Aceita operadores binários simples (expr OP expr)
+            node = {"type": "Literal", "value": token[1]}
+
             if self.pos < len(self.tokens) and self.tokens[self.pos][0] == "OPERATOR":
+                op = self.tokens[self.pos][1]
                 self.pos += 1
-                self.expr()
+                right = self.expr()
+                node = {"type": "BinaryOp", "operator": op, "left": node, "right": right}
+
+            return node
+
         elif token == ("DELIMITER", "("):
             self.pos += 1
-            self.expr()
+            node = self.expr()
             self.expect("DELIMITER", ")")
+            return node
+
         else:
             raise SyntaxError(f"Expressão inválida: {token}")
