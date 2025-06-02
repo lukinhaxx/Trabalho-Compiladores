@@ -141,17 +141,35 @@ class Parser:
     def expr(self):
         token = self.tokens[self.pos]
 
-        if token[0] in {"IDENTIFIER", "NUMBER", "STRING"}:
+        if token[0] == "IDENTIFIER":
             self.pos += 1
-            node = {"type": "Literal", "value": token[1]}
-
+            node = {"type": "Identifier", "name": token[1]}
+            
+            # Verifica operadores binários
             if self.pos < len(self.tokens) and self.tokens[self.pos][0] == "OPERATOR":
                 op = self.tokens[self.pos][1]
                 self.pos += 1
                 right = self.expr()
                 node = {"type": "BinaryOp", "operator": op, "left": node, "right": right}
-
+                
             return node
+            
+        elif token[0] == "NUMBER":
+            self.pos += 1
+            node = {"type": "Literal", "value": token[1]}
+            
+            # Verifica operadores binários
+            if self.pos < len(self.tokens) and self.tokens[self.pos][0] == "OPERATOR":
+                op = self.tokens[self.pos][1]
+                self.pos += 1
+                right = self.expr()
+                node = {"type": "BinaryOp", "operator": op, "left": node, "right": right}
+                
+            return node
+            
+        elif token[0] == "STRING":
+            self.pos += 1
+            return {"type": "Literal", "value": token[1]}
 
         elif token == ("DELIMITER", "("):
             self.pos += 1

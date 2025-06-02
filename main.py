@@ -1,35 +1,7 @@
-from lexica import lexer
-from parser import Parser
-from semantic import SemanticAnalyzer
-
-with open("codigo_fonte.txt", "r") as f:
-    codigo = f.read()
-
-tokens_validos, tokens_invalidos = lexer(codigo)
-
-if tokens_invalidos:
-    print("⚠️ Tokens inválidos encontrados:", tokens_invalidos)
-else:
-    print("✅ Tokens válidos. Iniciando análise sintática...\n")
-    parser = Parser(tokens_validos)
-    try:
-        ast = parser.program()
-        print("✅ Árvore sintática abstrata gerada com sucesso.\n")
-
-        print("🔍 Iniciando análise semântica...\n")
-        semantic = SemanticAnalyzer()
-        semantic.analyze(ast)
-        print("✅ Análise semântica concluída. Sem erros encontrados.")
-
-    except SyntaxError as e:
-        print("❌ Erro de sintaxe:", e)
-
-    except Exception as e:
-        print("❌ Erro semântico:", e)
 import json
 from lexica import lexer
 from parser import Parser
-from semantic import SemanticAnalyzer
+from semantic import SemanticAnalyzer  # ✅ Importação adicionada
 
 def main():
     try:
